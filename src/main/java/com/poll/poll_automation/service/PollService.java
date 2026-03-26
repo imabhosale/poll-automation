@@ -5,14 +5,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
+
 import java.util.HashMap;
-import org.apache.hc.client5.http.classic.CloseableHttpClient;
-import org.apache.hc.client5.http.classic.HttpClients;
-import org.apache.hc.client5.http.cookie.BasicCookieStore;
-import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
-import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import java.util.List;
 import java.util.Map;
 
@@ -35,7 +29,7 @@ public class PollService {
         RestTemplate restTemplate = new RestTemplate();
 
         try {
-            // 🔹 Step 1: LOGIN (JWT)
+            // 🔹 Step 1: LOGIN
             String token = authService.loginAndGetToken(email, password);
 
             if (token == null) {
@@ -88,103 +82,85 @@ public class PollService {
 
             System.out.println("✅ Dinner ID: " + dinnerId);
 
-            // 🔹 Step 4: LOGIN SESSION
-            RestTemplate sessionTemplate = loginAndGetSessionTemplate();
+            // 🔹 Step 4: GET POLL DETAILS (IMPORTANT)
+            String detailsUrl = BASE_API + "/api/v1/poll/details?id=" + dinnerId;
 
-// 🔹 Step 5: VOTE
-            String voteUrl = "https://li1761-109.members.linode.com:8095/poll/chooseoption";
+            HttpHeaders detailsHeaders = new HttpHeaders();
+            detailsHeaders.setBearerAuth(token);
 
-            MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
-            formData.add("id", String.valueOf(dinnerId));
-            formData.add("option", "YES");
+            HttpEntity<String> detailsRequest = new HttpEntity<>(detailsHeaders);
+
+            ResponseEntity<Map> detailsResponse =
+                    restTemplate.exchange(detailsUrl, HttpMethod.GET, detailsRequest, Map.class);
+
+            Map<String, Object> detailsBody = detailsResponse.getBody();
+
+            System.out.println("Poll Details: " + detailsBody);
+
+            // 🔹 Step 5: Extract OPTION ID (Yes)
+            // 🔹 Step 5: Extract OPTION ID (FINAL FIX)
+
+            Map<String, Object> pollObj =
+                    (Map<String, Object>) detailsBody.get("poll");
+
+            if (pollObj == null) {
+                System.out.println("❌ poll object not found");
+                return;
+            }
+
+            List<Map<String, Object>> options =
+                    (List<Map<String, Object>>) pollObj.get("options");
+
+            if (options == null) {
+                System.out.println("❌ options not found inside poll");
+                return;
+            }
+
+            Integer optionId = null;
+
+            for (Map<String, Object> opt : options) {
+                String text = (String) opt.get("optionText");
+
+                if (text != null && text.equalsIgnoreCase("Yes")) {
+                    optionId = (Integer) opt.get("id");
+                    break;
+                }
+            }
+
+            if (optionId == null) {
+                System.out.println("❌ YES option not found");
+                return;
+            }
+
+            System.out.println("✅ Option ID: " + optionId);
+
+            // 🔹 Step 6: SAVE VOTE (FINAL FIX)
+// 🔹 Step 6: SAVE VOTE (FINAL CORRECT)
+
+            String voteUrl = BASE_API + "/api/v1/vote/save";
+
+// 🔥 EXACT payload from browser
+            Map<String, Object> voteBody = new HashMap<>();
+            voteBody.put("pollId", dinnerId);
+            voteBody.put("selectedOptionIds", List.of(optionId)); // ✅ exact key
+            voteBody.put("userId", 294); // 🔥 IMPORTANT
 
             HttpHeaders voteHeaders = new HttpHeaders();
-            voteHeaders.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-            voteHeaders.set("User-Agent", "Mozilla/5.0");
+            voteHeaders.setContentType(MediaType.APPLICATION_JSON);
+            voteHeaders.setBearerAuth(token);
 
-            HttpEntity<MultiValueMap<String, String>> voteRequest =
-                    new HttpEntity<>(formData, voteHeaders);
+            voteHeaders.set("Origin", "https://li1761-109.members.linode.com:8095");
+            voteHeaders.set("Referer", "https://li1761-109.members.linode.com:8095/");
+
+            HttpEntity<Map<String, Object>> voteRequest =
+                    new HttpEntity<>(voteBody, voteHeaders);
 
             ResponseEntity<String> voteResponse =
-                    sessionTemplate.postForEntity(voteUrl, voteRequest, String.class);
+                    restTemplate.postForEntity(voteUrl, voteRequest, String.class);
 
-            System.out.println("✅ FINAL Vote response: " + voteResponse.getBody());
+            System.out.println("🔥 FINAL Vote response: " + voteResponse.getBody());
         } catch (Exception e) {
             System.out.println("❌ Error: " + e.getMessage());
         }
-    }
-
-
-
-    public RestTemplate loginAndGetSessionTemplate() {
-
-        RestTemplate restTemplate = getRestTemplateWithCookies();
-
-        String loginUrl = "https://li1761-109.members.linode.com:8095/signin";
-
-        MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
-        body.add("email", email);
-        body.add("password", password);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-
-        headers.set("User-Agent", "Mozilla/5.0");
-        headers.set("Origin", "https://li1761-109.members.linode.com:8095");
-        headers.set("Referer", "https://li1761-109.members.linode.com:8095/signin");
-
-        HttpEntity<MultiValueMap<String, String>> request =
-                new HttpEntity<>(body, headers);
-
-        ResponseEntity<String> response =
-                restTemplate.postForEntity(loginUrl, request, String.class);
-
-        System.out.println("✅ Session login done");
-
-        return restTemplate; // 🔥 IMPORTANT (this holds cookies)
-    }
-
-    public List<String> loginWithSession() {
-
-        RestTemplate restTemplate = new RestTemplate();
-
-        String loginUrl = "https://li1761-109.members.linode.com:8095/signin";
-
-        MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
-        body.add("email", email);
-        body.add("password", password);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-
-        headers.set("User-Agent", "Mozilla/5.0");
-        headers.set("Origin", "https://li1761-109.members.linode.com:8095");
-        headers.set("Referer", "https://li1761-109.members.linode.com:8095/signin");
-
-        HttpEntity<MultiValueMap<String, String>> request =
-                new HttpEntity<>(body, headers);
-
-        ResponseEntity<String> response =
-                restTemplate.postForEntity(loginUrl, request, String.class);
-
-        List<String> cookies = response.getHeaders().get(HttpHeaders.SET_COOKIE);
-
-        System.out.println("🍪 Cookies: " + cookies);
-
-        return cookies;
-    }
-
-    public RestTemplate getRestTemplateWithCookies() {
-
-        BasicCookieStore cookieStore = new BasicCookieStore();
-
-        CloseableHttpClient httpClient = HttpClientBuilder.create()
-                .setDefaultCookieStore(cookieStore)
-                .build();
-
-        HttpComponentsClientHttpRequestFactory factory =
-                new HttpComponentsClientHttpRequestFactory(httpClient);
-
-        return new RestTemplate(factory);
     }
 }
