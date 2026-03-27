@@ -30,7 +30,7 @@ public class PollService {
 
         try {
             // 🔹 Step 1: LOGIN
-            System.out.println("⏰ Running poll at 1:22 AM...");
+            System.out.println("⏰ Running poll at 1:30 AM...");
 
             String token = authService.loginAndGetToken(email, password);
 
