@@ -10,9 +10,9 @@ public class PollScheduler {
     @Autowired
     private PollService pollService;
 
-    @Scheduled(cron = "0 16 1 * * ?", zone = "Asia/Kolkata")
+    @Scheduled(cron = "0 22 1 * * ?", zone = "Asia/Kolkata")
     public void runPoll() {
-        System.out.println("⏰ Running poll at 1:16 AM...");
+        System.out.println("⏰ Running poll at 1:22 AM...");
         pollService.vote();
     }
 }
