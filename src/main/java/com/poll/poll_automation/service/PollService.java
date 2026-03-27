@@ -98,7 +98,6 @@ public class PollService {
             System.out.println("Poll Details: " + detailsBody);
 
             // 🔹 Step 5: Extract OPTION ID (Yes)
-            // 🔹 Step 5: Extract OPTION ID (FINAL FIX)
 
             Map<String, Object> pollObj =
                     (Map<String, Object>) detailsBody.get("poll");
@@ -135,7 +134,6 @@ public class PollService {
             System.out.println("✅ Option ID: " + optionId);
 
             // 🔹 Step 6: SAVE VOTE (FINAL FIX)
-// 🔹 Step 6: SAVE VOTE (FINAL CORRECT)
 
             String voteUrl = BASE_API + "/api/v1/vote/save";
 
