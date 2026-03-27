@@ -10,7 +10,7 @@ public class PollScheduler {
     @Autowired
     private PollService pollService;
 
-    @Scheduled(cron = "0 30 23 * * ?") // ✅ 11:30 PM daily
+    @Scheduled(cron = "0 30 23 * * ?", zone = "Asia/Kolkata")
     public void runPoll() {
         System.out.println("Running poll at 11:30 PM...");
         pollService.vote();
